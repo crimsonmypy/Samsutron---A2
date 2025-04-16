@@ -1,0 +1,64 @@
+#include <WiFi.h>
+#include <UbidotsESPMQTT.h>
+
+/****************************************
+ * Define Constants
+ ****************************************/
+#define TOKEN "BBUS-y5pNPRLqtyQE0IeHPF1WW5UiVge6WY"     // Your Ubidots TOKEN
+#define WIFINAME "Alto"  // Your SSID
+#define WIFIPASS "qwerty12"  // Your Wifi Pass
+
+#define TURBIDITY_PIN 34 // Pin analog yang terhubung ke sensor turbidity
+
+Ubidots client(TOKEN);
+
+/****************************************
+ * Auxiliar Functions
+ ****************************************/
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+/****************************************
+ * Main Functions
+ ****************************************/
+
+void setup() {
+  Serial.begin(115200);
+  client.setDebug(true);  // Pass a true or false bool value to activate debug messages
+  client.wifiConnection(WIFINAME, WIFIPASS);
+  client.begin(callback);
+  
+  pinMode(TURBIDITY_PIN, INPUT); // Set the turbidity pin as input
+}
+
+void loop() {
+  if (!client.connected()) {
+    client.reconnect();
+  }
+
+  // Baca nilai dari sensor turbidity
+  int turbidityValue = analogRead(TURBIDITY_PIN);
+  
+  // Konversi nilai analog ke kekeruhan (NTU)
+  float turbidityNTU = (turbidityValue / 4095.0) * 100; // Sesuaikan dengan sensor Anda
+  
+  // Publish nilai kekeruhan ke Ubidots
+  client.add("turbidity", turbidityNTU); // Ganti "turbidity" dengan label variabel Anda
+  client.ubidotsPublish("source1"); // Ganti "source1" dengan label sumber Anda
+  
+  // Tampilkan nilai kekeruhan di Serial Monitor
+  Serial.print("Nilai Kekeruhan: ");
+  Serial.print(turbidityNTU);
+  Serial.println(" NTU");
+  
+  client.loop();
+  delay(5000); // Kirim data setiap 5 detik
+}
